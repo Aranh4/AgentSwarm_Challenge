@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  agent-swarm:
+    build: .
+    image: cloudwalk-agent-swarm
+    container_name: agent-swarm
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    # Use generic profile to avoid auto-starting if needed
+    profiles: [ "default" ]
+
+# To run: docker-compose up --build
