@@ -1,7 +1,7 @@
 """
-RAG Searcher - Interface para busca semântica no ChromaDB
+RAG Searcher - Interface for semantic search in ChromaDB
 
-Fornece busca semântica com formatação de contexto para uso em LLMs
+Provides semantic search with context formatting for LLM usage
 """
 
 import chromadb
@@ -16,11 +16,11 @@ logger = logging.getLogger(__name__)
 
 
 class RAGSearcher:
-    """Interface para buscar documentos no ChromaDB"""
+    """Interface for searching documents in ChromaDB"""
     
     def __init__(self):
-        """Inicializa searcher com ChromaDB e embeddings"""
-        logger.info("Inicializando RAGSearcher...")
+        """Initializes searcher with ChromaDB and embeddings"""
+        logger.info("Initializing RAGSearcher...")
         
         # Setup embeddings
         self.embeddings = OpenAIEmbeddings(
@@ -35,7 +35,7 @@ class RAGSearcher:
             persist_directory=settings.chroma_persist_dir
         )
         
-        logger.info("RAGSearcher pronto")
+        logger.info("RAGSearcher ready")
     
     def search(
         self, 
@@ -44,23 +44,23 @@ class RAGSearcher:
         filter_by: Optional[Dict] = None
     ) -> List[Dict]:
         """
-        Busca semântica no ChromaDB
+        Semantic search in ChromaDB
         
         Args:
-            query: Texto da query
-            top_k: Número de resultados a retornar (padrão: 5)
-            filter_by: Filtros de metadata (opcional)
-                Exemplo: {"product": "maquininha"}
+            query: Query text
+            top_k: Number of results to return (default: 5)
+            filter_by: Metadata filters (optional)
+                Example: {"product": "maquininha"}
         
         Returns:
-            Lista de dicts com:
-            - content: texto do chunk
-            - metadata: dict com product, section, source, etc
-            - score: score de similaridade
+            List of dicts with:
+            - content: chunk text
+            - metadata: dict with product, section, source, etc
+            - score: similarity score
         """
-        logger.debug(f"Buscando: '{query}' (top_k={top_k})")
+        logger.debug(f"Searching: '{query}' (top_k={top_k})")
         
-        # Busca por similaridade
+        # Similarity search
         if filter_by:
             results = self.vectorstore.similarity_search_with_score(
                 query,
@@ -73,7 +73,7 @@ class RAGSearcher:
                 k=top_k
             )
         
-        # Formatar resultados
+        # Format results
         formatted_results = []
         for doc, score in results:
             formatted_results.append({
@@ -82,22 +82,22 @@ class RAGSearcher:
                 'score': float(score)
             })
         
-        logger.info(f"Encontrados {len(formatted_results)} resultados")
+        logger.info(f"Found {len(formatted_results)} results")
         return formatted_results
     
     def format_context(self, documents: List[Dict], include_metadata: bool = True) -> str:
         """
-        Formata documentos como contexto para LLM
+        Formats documents as context for LLM
         
         Args:
-            documents: Lista de documentos (resultado de search())
-            include_metadata: Se True, inclui header e source
+            documents: List of documents (search() result)
+            include_metadata: If True, includes header and source
         
         Returns:
-            String formatada para uso como contexto
+            Formatted string for context usage
         """
         if not documents:
-            return "Nenhum documento relevante encontrado."
+            return "No relevant documents found."
         
         context_parts = []
         
@@ -106,22 +106,22 @@ class RAGSearcher:
             metadata = doc.get('metadata', {})
             
             if include_metadata:
-                header = metadata.get('section', 'Sem título')
-                source = metadata.get('source', 'Fonte desconhecida')
+                header = metadata.get('section', 'Untitled')
+                source = metadata.get('source', 'Unknown source')
                 product = metadata.get('product', '')
                 
-                # Formatar cada documento
+                # Format each document
                 doc_text = f"""
-[DOCUMENTO {i}]
-Produto: {product}
-Seção: {header}
-Fonte: {source}
+[DOCUMENT {i}]
+Product: {product}
+Section: {header}
+Source: {source}
 
 {content}
 ---
 """
             else:
-                doc_text = f"\n[DOCUMENTO {i}]\n{content}\n---\n"
+                doc_text = f"\n[DOCUMENT {i}]\n{content}\n---\n"
             
             context_parts.append(doc_text)
         
@@ -134,15 +134,15 @@ Fonte: {source}
         include_metadata: bool = True
     ) -> tuple[str, List[Dict]]:
         """
-        Busca e formata em uma única operação
+        Search and format in a single operation
         
         Args:
-            query: Query para buscar
-            top_k: Número de resultados
-            include_metadata: Incluir metadata no contexto
+            query: Search query
+            top_k: Number of results
+            include_metadata: Include metadata in context
         
         Returns:
-            Tupla (contexto_formatado, documentos_raw)
+            Tuple (formatted_context, raw_documents)
         """
         documents = self.search(query, top_k=top_k)
         context = self.format_context(documents, include_metadata=include_metadata)

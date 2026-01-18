@@ -15,13 +15,13 @@ from src.env_loader import *  # noqa
 @pytest.fixture
 def test_user_id():
     """Standard test user ID from mock DB."""
-    return "client789"
+    return "happy_customer"
 
 
 @pytest.fixture
 def blocked_user_id():
     """Blocked user ID for testing account status."""
-    return "user_blocked"
+    return "blocked_user"
 
 
 @pytest.fixture

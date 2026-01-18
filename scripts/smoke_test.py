@@ -7,7 +7,7 @@ import requests
 import time
 import sys
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = "http://localhost:8080"
 
 def test_health_check():
     """Test 1: API Health"""

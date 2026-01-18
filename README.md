@@ -1,279 +1,346 @@
 # CloudWalk Agent Swarm 🤖
 
-> Sistema multi-agente inteligente para suporte ao cliente e base de conhecimento da **InfinitePay**.
+> **Multi-agent AI system for customer support and intelligent knowledge retrieval** — Built for InfinitePay
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-green.svg)](https://fastapi.tiangolo.com/)
 [![CrewAI](https://img.shields.io/badge/CrewAI-0.121+-purple.svg)](https://docs.crewai.com/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
 
 ---
 
-## 📋 Índice
+## 📋 Table of Contents
 
-1. [Visão Geral](#-visão-geral)
-2. [Arquitetura do Sistema](#-arquitetura-do-sistema)
-3. [Agentes Implementados](#-agentes-implementados)
-4. [RAG Pipeline](#-rag-pipeline)
-5. [Como Executar](#-como-executar)
-6. [API Endpoints](#-api-endpoints)
-7. [Testes](#-testes)
-8. [Decisões de Design](#-decisões-de-design)
-9. [Uso de LLMs no Desenvolvimento](#-uso-de-llms-no-desenvolvimento)
-
----
-
-## 🎯 Visão Geral
-
-Este projeto implementa um **Agent Swarm** (enxame de agentes) que processa mensagens de usuários através de múltiplos agentes especializados colaborando entre si:
-
-| Agente | Responsabilidade |
-|--------|------------------|
-| **Router Agent** | Analisa a intenção e roteia para o agente correto |
-| **Knowledge Agent** | Responde perguntas usando RAG (InfinitePay) ou Web Search |
-| **Support Agent** | Consulta dados do cliente (transações, status, etc.) |
-| **Output Processor** | Garante qualidade e consistência de linguagem |
-
-### Funcionalidades Principais
-
-- ✅ **RAG Pipeline** com 18 URLs da InfinitePay indexadas
-- ✅ **Web Search** para perguntas gerais (Tavily)
-- ✅ **Suporte ao Cliente** com banco SQLite mock
-- ✅ **Colaboração Multi-Agent** para perguntas complexas
-- ✅ **Frontend** moderno com tema InfinitePay
-- ✅ **Docker** pronto para deploy
+- [Overview](#-overview)
+- [Live Demo](#-live-demo)
+- [System Architecture](#-system-architecture)
+- [Agents](#-agents)
+- [RAG Pipeline](#-rag-pipeline)
+- [Quick Start](#-quick-start)
+- [API Reference](#-api-reference)
+- [Testing](#-testing)
+- [Design Decisions](#-design-decisions)
+- [Project Structure](#-project-structure)
 
 ---
 
-## 🏗️ Arquitetura do Sistema
+## 🎯 Overview
 
+This project implements an **intelligent Agent Swarm** that processes user queries through multiple specialized AI agents working collaboratively:
+
+| Agent | Role | Tools |
+|-------|------|-------|
+| 🔀 **Router** | Intent classification & language detection | LLM (few-shot) |
+| 🧠 **Knowledge** | Product info & general knowledge | RAG, Web Search |
+| 🎧 **Support** | Customer account & transactions | SQLite Database |
+| ✨ **Output Processor** | Translation & quality polish | LLM |
+| 🛡️ **Guardrail** | Security & content filtering | Rule-based + LLM |
+
+### ✅ Key Features
+
+- **RAG Pipeline** — 18 InfinitePay URLs indexed with semantic chunking
+- **Web Search** — Real-time information via Tavily API
+- **Multi-Agent Collaboration** — Parallel execution for complex queries
+- **Bilingual Support** — Portuguese & English with auto-detection
+- **Security Guardrails** — Blocks prompt injection, harmful content, privacy violations
+- **Modern Frontend** — Chat interface with agent visualization & debug mode
+- **Docker Ready** — One-command deployment
+
+---
+
+## 🎬 Live Demo
+
+> Access the frontend at `http://localhost:8080` after starting the server
+
+**Example Interactions:**
+
+| Query | Agent(s) | Response |
+|-------|----------|----------|
+| "Quais as taxas da maquininha?" | 🧠 Knowledge | Fees from RAG (InfinitePay docs) |
+| "Show my balance" | 🎧 Support | User account data from DB |
+| "What product is best for me?" | 🧠+🎧 Both | Personalized recommendation |
+| "Latest news about AI" | 🧠 Knowledge | Real-time web search results |
+
+---
+
+## 🏗️ System Architecture
+
+```mermaid
+flowchart TB
+    subgraph User["👤 User"]
+        REQ["POST /chat<br/>{message, user_id}"]
+    end
+    
+    subgraph API["🌐 FastAPI"]
+        CORS["CORS + Validation"]
+    end
+    
+    subgraph Security["🛡️ Security Layer"]
+        GUARD["Guardrail Agent<br/>• Prompt Injection<br/>• Harmful Content<br/>• Privacy Check"]
+    end
+    
+    subgraph Router["🔀 Router Agent"]
+        CLASS["Intent Classification<br/>• KNOWLEDGE<br/>• SUPPORT<br/>• BOTH"]
+        LANG["Language Detection<br/>• Portuguese<br/>• English"]
+    end
+    
+    subgraph Agents["🤖 Specialized Agents"]
+        KNOW["🧠 Knowledge Agent"]
+        SUPP["🎧 Support Agent"]
+        COLLAB["🔄 Collaborative Crew"]
+    end
+    
+    subgraph Tools["🔧 Tools"]
+        RAG["📚 RAG Search<br/>(ChromaDB)"]
+        WEB["🌍 Web Search<br/>(Tavily)"]
+        DB["💾 Database<br/>(SQLite)"]
+    end
+    
+    subgraph Output["✨ Output Layer"]
+        PROC["Output Processor<br/>• Translation<br/>• Tone Polish<br/>• Quality"]
+    end
+    
+    subgraph Response["📤 Response"]
+        JSON["{response, agent_used, sources, debug_info}"]
+    end
+    
+    REQ --> CORS --> GUARD
+    GUARD -->|"✅ Passed"| CLASS
+    GUARD -->|"🚫 Blocked"| JSON
+    CLASS --> LANG
+    LANG -->|KNOWLEDGE| KNOW
+    LANG -->|SUPPORT| SUPP
+    LANG -->|BOTH| COLLAB
+    
+    KNOW --> RAG
+    KNOW --> WEB
+    SUPP --> DB
+    COLLAB --> RAG
+    COLLAB --> DB
+    
+    RAG --> PROC
+    WEB --> PROC
+    DB --> PROC
+    
+    PROC --> JSON
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      User Request                           │
-│              POST /chat {"message", "user_id"}              │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-                           ▼
-┌──────────────────────────────────────────────────────────────┐
-│                     FastAPI Application                      │
-│                    (Validation, CORS, Logging)               │
-└──────────────────────────┬───────────────────────────────────┘
-                           │
-                           ▼
-              ┌────────────────────────┐
-              │     ROUTER AGENT       │
-              │  Classifica a query:   │
-              │  • knowledge           │
-              │  • support             │
-              │  • knowledge+support   │
-              └───────────┬────────────┘
-                          │
-        ┌─────────────────┼─────────────────┐
-        │                 │                 │
-        ▼                 ▼                 ▼
-┌───────────────┐ ┌───────────────┐ ┌───────────────────┐
-│   KNOWLEDGE   │ │    SUPPORT    │ │  KNOWLEDGE+SUPPORT│
-│     AGENT     │ │     AGENT     │ │   (Collaborative) │
-│               │ │               │ │                   │
-│ Tools:        │ │ Tools:        │ │ Context Sharing   │
-│ • RAG Search  │ │ • get_user    │ │ entre Tasks       │
-│ • Web Search  │ │ • get_txns    │ │                   │
-└───────┬───────┘ └───────┬───────┘ └─────────┬─────────┘
-        │                 │                   │
-        └─────────────────┴───────────────────┘
-                          │
-                          ▼
-              ┌────────────────────────┐
-              │   OUTPUT PROCESSOR     │
-              │  • Tradução automática │
-              │  • Consistência de tom │
-              │  • Qualidade do texto  │
-              └───────────┬────────────┘
-                          │
-                          ▼
-                 ┌─────────────────┐
-                 │  JSON Response  │
-                 │  • response     │
-                 │  • agent_used   │
-                 │  • sources      │
-                 └─────────────────┘
-```
 
-### Fluxo de Dados
+### Data Flow
 
-1. **Request** chega via POST `/chat`
-2. **Router Agent** classifica a intenção usando LLM
-3. **Agente(s) especializado(s)** são acionados:
-   - Knowledge: busca no RAG ou web
-   - Support: consulta banco de dados do cliente
-   - Ambos: contexto compartilhado entre tasks
-4. **Output Processor** polui a resposta final
-5. **Response** retornada com metadados (agente usado, fontes)
+1. **Request** → User sends message via `POST /chat`
+2. **Security** → Guardrail Agent validates for threats
+3. **Routing** → Router classifies intent + detects language
+4. **Execution** → Specialized agent(s) process query
+5. **Polish** → Output Processor ensures quality & translation
+6. **Response** → JSON with text, agents used, sources, debug info
 
 ---
 
-## 🤖 Agentes Implementados
+## 🤖 Agents
 
-### Router Agent (`src/agents/router_agent.py`)
+### 🔀 Router Agent
 
-- **Função:** Ponto de entrada para todas as mensagens
-- **Decisão:** Classifica queries em categorias
-- **Output:** JSON com `routing` e `agents_needed`
+**File:** `src/agents/router_agent.py`
 
-### Knowledge Agent (`src/agents/knowledge_agent.py`)
+| Aspect | Details |
+|--------|---------|
+| **Purpose** | Entry point — classifies queries and detects language |
+| **Method** | LLM few-shot classification (gpt-4o-mini, temp=0) |
+| **Output** | `(KNOWLEDGE\|SUPPORT\|BOTH, Portuguese\|English)` |
 
-- **Função:** Responde perguntas sobre InfinitePay e perguntas gerais
-- **Tools:**
-  - `search_infinitepay_knowledge` - Busca no RAG (ChromaDB)
-  - `search_web` - Busca na internet (Tavily)
-- **Prioridade:** RAG first para perguntas sobre produtos InfinitePay
+**Why combined routing + language?**
+- Single LLM call = lower latency
+- RAG content is in Portuguese → explicit detection prevents wrong-language responses
 
-### Support Agent (`src/agents/support_agent.py`)
+```python
+# Example
+routing, language = router.classify_query("What are the fees?")
+# → ("KNOWLEDGE", "English")
+```
 
-- **Função:** Suporte ao cliente com dados do usuário
-- **Tools:**
-  - `get_user_account_data` - Dados da conta
-  - `get_user_transactions` - Histórico de transações
-  - `get_user_cards` - Cartões vinculados
-- **Database:** SQLite com dados mock
+---
 
-### Output Processor (`src/agents/output_processor.py`)
+### 🧠 Knowledge Agent
 
-- **Função:** Pós-processamento de qualidade
-- **Responsabilidades:**
-  - Detectar idioma da query e traduzir resposta
-  - Manter tom profissional InfinitePay
-  - Traduzir headers de dados estruturados
-  - Remover mensagens contraditórias
+**File:** `src/agents/knowledge_agent.py`
+
+| Aspect | Details |
+|--------|---------|
+| **Purpose** | Answers product & general knowledge questions |
+| **Tools** | `search_infinitepay_knowledge` (RAG), `search_web` (Tavily) |
+| **Priority** | RAG first for InfinitePay topics, Web for general/news |
+
+**Tool Selection Logic:**
+- "Taxas da maquininha?" → RAG (InfinitePay product)
+- "Latest Palmeiras game?" → Web Search (current events)
+- "InfinitePay vs competitors?" → RAG + Web (comparison)
+
+---
+
+### 🎧 Support Agent
+
+**File:** `src/agents/support_agent.py`
+
+| Aspect | Details |
+|--------|---------|
+| **Purpose** | Customer support with account data access |
+| **Tools** | `get_user_info`, `get_user_transactions`, `get_user_cards` |
+| **Security** | Hardened against user ID spoofing |
+
+**Available Data:**
+- Account status (active/blocked + reason)
+- Transaction history (last 5, with failure reasons)
+- Card limits and usage
+
+---
+
+### ✨ Output Processor
+
+**File:** `src/agents/output_processor.py`
+
+| Aspect | Details |
+|--------|---------|
+| **Purpose** | Final response polishing |
+| **Tasks** | Translation, tone consistency, ID removal |
+| **Critical** | Ensures response language matches query language |
+
+**Example Transformation:**
+```
+Query (EN): "What are the fees?"
+RAG Response (PT): "As taxas são 1.37% para débito..."
+Output (EN): "The fees are 1.37% for debit..."
+```
+
+---
+
+### 🛡️ Guardrail Agent
+
+**File:** `src/agents/guardrail_agent.py`
+
+| Threat | Detection | Response |
+|--------|-----------|----------|
+| Prompt Injection | Pattern + LLM | 🚫 Blocked |
+| Harmful Content | LLM classification | 🚫 Blocked |
+| Privacy Violation | User ID mismatch | 🚫 Blocked |
 
 ---
 
 ## 📚 RAG Pipeline
 
-### Arquitetura RAG
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        INGESTÃO                              │
-│                                                              │
-│  18 URLs InfinitePay  →  Scraping HTML  →  Semantic Chunks   │
-│         ↓                     ↓                   ↓          │
-│   requests + retry      BeautifulSoup      ~500 chars/chunk  │
-│                                                              │
-│  Chunks  →  OpenAI Embeddings  →  ChromaDB (Persistent)      │
-│                text-embedding-3-small                        │
-└─────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────┐
-│                        RETRIEVAL                             │
-│                                                              │
-│  User Query  →  Embedding  →  Similarity Search  →  Top 5   │
-│       ↓             ↓              ↓                  ↓      │
-│   "Taxas da     Vector        ChromaDB          Chunks mais  │
-│   maquininha"   [0.12, ...]    cosine            relevantes  │
-│                                                              │
-│  Chunks  →  LLM Context  →  Generated Response              │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph Ingestion["📥 Ingestion (One-time)"]
+        URLs["18 InfinitePay URLs"]
+        SCRAPE["HTML Scraping<br/>(requests + BeautifulSoup)"]
+        CHUNK["Semantic Chunking<br/>(~500 chars)"]
+        EMBED["OpenAI Embeddings<br/>(text-embedding-3-small)"]
+        STORE["ChromaDB<br/>(Persistent)"]
+    end
+    
+    subgraph Retrieval["🔍 Retrieval (Per-query)"]
+        QUERY["User Query"]
+        QEMBED["Query Embedding"]
+        SEARCH["Similarity Search<br/>(Cosine)"]
+        TOP5["Top 5 Chunks"]
+        LLM["LLM Context"]
+    end
+    
+    URLs --> SCRAPE --> CHUNK --> EMBED --> STORE
+    QUERY --> QEMBED --> SEARCH --> TOP5 --> LLM
+    STORE -.-> SEARCH
 ```
 
-### URLs Indexadas (18 páginas)
+### Indexed URLs (18 pages)
 
-- `infinitepay.io` (home)
-- `infinitepay.io/taxas` ⭐ (taxas detalhadas)
-- `infinitepay.io/maquininha`
-- `infinitepay.io/maquininha-celular`
-- `infinitepay.io/tap-to-pay`
-- `infinitepay.io/pdv`
-- `infinitepay.io/receba-na-hora`
-- `infinitepay.io/gestao-de-cobranca`
-- `infinitepay.io/link-de-pagamento`
-- `infinitepay.io/loja-online`
-- `infinitepay.io/boleto`
-- `infinitepay.io/conta-digital`
-- `infinitepay.io/pix`
-- `infinitepay.io/pix-parcelado`
-- `infinitepay.io/emprestimo`
-- `infinitepay.io/cartao`
-- `infinitepay.io/rendimento`
+| Category | URLs |
+|----------|------|
+| **Core** | `infinitepay.io`, `infinitepay.io/taxas` ⭐ |
+| **Hardware** | `/maquininha`, `/maquininha-celular`, `/tap-to-pay`, `/pdv` |
+| **Payments** | `/receba-na-hora`, `/link-de-pagamento`, `/boleto`, `/pix`, `/pix-parcelado` |
+| **Banking** | `/conta-digital`, `/cartao`, `/rendimento`, `/emprestimo` |
+| **Business** | `/gestao-de-cobranca`, `/loja-online`, `/confere` |
 
-### Código Principal
+### Key Files
 
-- `src/rag/ingest.py` - Pipeline de ingestão
-- `src/rag/search.py` - Interface de busca
-- `src/rag/urls.py` - Lista de URLs
-- `src/rag/semantic_chunker.py` - Chunking inteligente
+| File | Purpose |
+|------|---------|
+| `src/rag/ingest.py` | URL scraping, chunking, embedding |
+| `src/rag/search.py` | Similarity search interface |
+| `src/rag/urls.py` | URL list configuration |
+| `src/rag/semantic_chunker.py` | Intelligent text splitting |
 
 ---
 
-## 🚀 Como Executar
+## 🚀 Quick Start
 
-### Pré-requisitos
+### Prerequisites
 
 - Python 3.11+
-- OpenAI API Key
-- (Opcional) Tavily API Key para web search
+- OpenAI API Key (required)
+- Tavily API Key (optional, for web search)
 
-### Opção 1: Docker (Recomendado)
+### Option 1: Docker (Recommended)
 
 ```bash
-# 1. Clonar repositório
+# 1. Clone and enter directory
 git clone <repo-url>
 cd cloudwalk-agent-swarm
 
-# 2. Criar arquivo .env
+# 2. Configure environment
 cp .env.example .env
-# Edite .env e adicione sua OPENAI_API_KEY
+# Edit .env → Add OPENAI_API_KEY
 
-# 3. Subir container
+# 3. Start (builds + runs)
 docker-compose up --build
 
-# 4. Acessar
-# Frontend: http://localhost:8000
-# API Docs: http://localhost:8000/docs
+# 4. Access
+# 🖥️  Frontend: http://localhost:8080
+# 📖  API Docs: http://localhost:8080/docs
 ```
 
-### Opção 2: Local (Desenvolvimento)
+### Option 2: Local Development
 
 ```bash
-# 1. Criar ambiente virtual
+# 1. Virtual environment
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
-# ou: venv\Scripts\activate  # Windows
+# venv\Scripts\activate   # Windows
 
-# 2. Instalar dependências
+# 2. Dependencies
 pip install -r requirements.txt
 
-# 3. Configurar .env
+# 3. Environment
 cp .env.example .env
-# Adicione OPENAI_API_KEY
+# Add OPENAI_API_KEY
 
-# 4. Ingerir dados RAG (primeira vez)
+# 4. Ingest RAG data (first time)
 python scripts/ingest_rag.py
 
-# 5. Executar servidor
-python -m uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+# 5. Run server
+python -m uvicorn src.main:app --host 0.0.0.0 --port 8080 --reload
 ```
 
-### Variáveis de Ambiente (.env)
+### Environment Variables
 
 ```env
-OPENAI_API_KEY=sk-...           # Obrigatório
-TAVILY_API_KEY=tvly-...         # Opcional (web search)
+OPENAI_API_KEY=sk-...           # Required
+TAVILY_API_KEY=tvly-...         # Optional (enables web search)
 ENVIRONMENT=development
 LOG_LEVEL=INFO
 ```
 
 ---
 
-## 📡 API Endpoints
+## 📡 API Reference
 
-### POST /chat
+### `POST /chat`
 
-Envia mensagem para o Agent Swarm.
+Send a message to the Agent Swarm.
 
 **Request:**
 ```json
 {
-  "message": "Quais as taxas da maquininha smart?",
+  "message": "What are the fees for the Smart machine?",
   "user_id": "client789"
 }
 ```
@@ -281,15 +348,34 @@ Envia mensagem para o Agent Swarm.
 **Response:**
 ```json
 {
-  "response": "A Maquininha Smart da InfinitePay tem taxas a partir de 0,75%...",
-  "agent_used": "knowledge",
-  "sources": ["https://www.infinitepay.io/taxas"]
+  "response": "The InfinitePay Smart has fees starting from 0.75%...",
+  "agent_used": ["knowledge"],
+  "sources": ["https://www.infinitepay.io/taxas"],
+  "debug_info": {
+    "routing": "KNOWLEDGE",
+    "language": "English",
+    "guardrail": "Passed",
+    "total_time_ms": 4523,
+    "logs": [...]
+  }
 }
 ```
 
-### GET /health
+### `POST /users`
 
-Verifica status da API.
+Create a new user in the database.
+
+**Request:**
+```json
+{
+  "name": "João Silva",
+  "user_id": "joao123"  // Optional, auto-generated if omitted
+}
+```
+
+### `GET /health`
+
+Health check endpoint.
 
 **Response:**
 ```json
@@ -302,159 +388,155 @@ Verifica status da API.
 
 ### Swagger UI
 
-Acesse `http://localhost:8000/docs` para documentação interativa.
+Interactive API documentation: `http://localhost:8080/docs`
 
 ---
 
-## 🧪 Testes
+## 🧪 Testing
 
-### Executar Testes
+### Quick Test
 
 ```bash
-# Todos os testes
+# Comprehensive test suite (41 scenarios)
+python scripts/comprehensive_test.py
+```
+
+### Test Categories
+
+| Category | Tests | Description |
+|----------|-------|-------------|
+| **RAG - Products** | 5 | InfinitePay descriptions, bilingual |
+| **RAG - Fees** | 5 | Transaction fees, pricing |
+| **RAG - Features** | 5 | Pix, cards, CDB, billing |
+| **Web Search** | 7 | News, current events, trivia |
+| **Support** | 16 | Account status, transactions, cards |
+| **Collaborative** | 3 | Multi-agent workflows |
+
+### Run Tests
+
+```bash
+# All pytest tests
 pytest tests/ -v
 
-# Testes específicos
-pytest tests/test_rag.py -v
-pytest tests/test_api.py -v
-
-# Com cobertura
+# With coverage
 pytest tests/ --cov=src --cov-report=html
-```
 
-### Scripts de Validação
+# Security tests
+python scripts/test_security.py
 
-```bash
-# Smoke test rápido
+# Smoke test
 python scripts/smoke_test.py
-
-# Relatório completo de testes
-python scripts/generate_test_report.py
-
-# Verificar fixes específicos
-python scripts/verify_fixes.py
 ```
 
-### Estratégia de Testes
+### Performance Benchmarks
 
-1. **Unit Tests:** Funções isoladas (RAG search, tools)
-2. **Integration Tests:** Fluxo completo de agentes
-3. **E2E Tests:** Cenários reais via API
+| Agent Type | Avg. Response Time |
+|------------|-------------------|
+| Knowledge (RAG) | ~13s |
+| Support (DB) | ~8s |
+| Collaborative | ~18s |
 
 ---
 
-## 🎨 Decisões de Design
+## 🎨 Design Decisions
 
-### Por que CrewAI?
+### Why CrewAI?
 
-- Framework especializado em orquestração de agentes
-- Suporte nativo a context sharing entre tasks
-- Integração simples com LangChain
-- Código mais limpo que implementações manuais
+- Native multi-agent orchestration
+- Built-in context sharing between tasks
+- Clean integration with LangChain tools
+- Declarative agent definitions
 
-### Por que ChromaDB?
+### Why ChromaDB?
 
-- Vector store local (sem dependências externas)
-- Fácil de dockerizar
-- Persistência em disco
-- API simples e eficiente
+- Local vector store (no external service)
+- Persistent storage across restarts
+- Simple Python API
+- Easy to Dockerize
 
-### Por que Tavily (Web Search)?
+### Why Tavily for Web Search?
 
-- Resultados estruturados para LLMs
-- API confiável e rápida
-- Fallback para DuckDuckGo se necessário
+- Structured results optimized for LLMs
+- Fast and reliable
+- Better than DuckDuckGo for current events
 
-### Arquitetura Colaborativa
+### Collaborative Architecture
 
-A proposta pede explicitamente:
-> "decide which specialized agent **(or sequence of agents)** is best suited"
-
-Por isso implementamos:
-- **Single-Agent Flow:** Perguntas simples → 1 agente
-- **Multi-Agent Flow:** Perguntas complexas → Support + Knowledge com context sharing
+For questions requiring both product knowledge AND user data:
+- **Parallel Execution** — ThreadPoolExecutor runs agents concurrently
+- **Context Synthesis** — Results combined before output processing
+- **~50% faster** than sequential execution
 
 ### Output Processing Layer
 
-Separamos responsabilidades:
-- **Core Agents:** Focam em dados (RAG, DB)
-- **Output Processor:** Foca em qualidade (idioma, tom)
-
-Benefícios:
-- Consistência de linguagem
-- Manutenibilidade
-- Menos tokens gastos em cada agente
+Separated from core agents to:
+- Ensure language consistency (RAG is PT, query may be EN)
+- Maintain InfinitePay brand voice
+- Remove technical artifacts (user IDs, etc.)
+- Reduce prompt complexity per agent
 
 ---
 
-## 🤖 Uso de LLMs no Desenvolvimento
-
-Este projeto foi desenvolvido com assistência de LLMs (Claude/GPT) para:
-
-### Arquitetura & Design
-- Discussão de trade-offs entre frameworks (CrewAI vs LangGraph)
-- Design do fluxo multi-agent colaborativo
-- Estrutura do RAG pipeline
-
-### Implementação
-- Scaffolding inicial do projeto
-- Debugging de erros de integração CrewAI
-- Otimização de prompts dos agentes
-
-### Testes & Qualidade
-- Geração de cenários de teste
-- Identificação de edge cases
-- Validação de consistência de linguagem
-
-### Documentação
-- Estruturação do README
-- Diagramas de arquitetura (ASCII)
-- PRD detalhado
-
-**Nota:** Todo código foi revisado, testado e validado manualmente. LLMs foram usados como aceleradores, não substitutos do desenvolvimento.
-
----
-
-## 📂 Estrutura do Projeto
+## 📂 Project Structure
 
 ```
 cloudwalk-agent-swarm/
 ├── src/
-│   ├── agents/           # Definição dos agentes
+│   ├── agents/              # Agent implementations
 │   │   ├── router_agent.py
 │   │   ├── knowledge_agent.py
 │   │   ├── support_agent.py
-│   │   └── output_processor.py
-│   ├── rag/              # Pipeline RAG
+│   │   ├── output_processor.py
+│   │   └── guardrail_agent.py
+│   ├── crew/                # Multi-agent orchestration
+│   │   └── collaborative_crew.py
+│   ├── rag/                 # RAG pipeline
 │   │   ├── ingest.py
 │   │   ├── search.py
-│   │   └── urls.py
-│   ├── tools/            # Ferramentas dos agentes
+│   │   ├── urls.py
+│   │   └── semantic_chunker.py
+│   ├── tools/               # Agent tools
 │   │   ├── rag_tool.py
 │   │   ├── tavily_tool.py
 │   │   └── support_tools.py
-│   ├── db/               # Database SQLite
-│   ├── main.py           # FastAPI app
-│   ├── config.py         # Configurações
-│   └── schemas.py        # Pydantic models
-├── frontend/             # Interface web
-├── tests/                # Testes pytest
-├── scripts/              # Scripts auxiliares
-├── data/                 # Dados persistentes
+│   ├── db/                  # Database client
+│   ├── utils/               # Helpers (session, debug)
+│   ├── main.py              # FastAPI application
+│   ├── config.py            # Settings
+│   └── schemas.py           # Pydantic models
+├── frontend/                # Chat interface
+│   ├── index.html
+│   ├── app.js
+│   └── styles.css
+├── tests/                   # Pytest test suite
+├── scripts/                 # Utility & test scripts
+├── data/                    # Persistent data (ChromaDB, SQLite)
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
-├── PRD.md               # Product Requirements Document
-└── README.md            # Este arquivo
+└── README.md
 ```
 
 ---
 
-## 📄 Licença
+## 🤖 LLM Usage in Development
 
-Desenvolvido para o Desafio AI da CloudWalk.
+This project was developed with AI assistance for:
+
+- **Architecture** — Framework comparisons (CrewAI vs LangGraph)
+- **Implementation** — Debugging, prompt engineering
+- **Testing** — Scenario generation, edge case identification
+- **Documentation** — README structure, diagrams
+
+> All code was manually reviewed, tested, and validated. LLMs accelerated development but did not replace human judgment.
 
 ---
 
-**Autor:** Caio Garcia  
-**Data:** Janeiro 2026
+## 📄 License
+
+Developed for the **CloudWalk AI Challenge**.
+
+---
+
+**Author:** Caio Garcia  
+**Date:** January 2026

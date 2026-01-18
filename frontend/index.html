@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <div class="app-container">
         <!-- Sidebar -->
@@ -14,10 +16,13 @@
             <div class="sidebar-header">
                 <div class="logo">
                     <span class="logo-icon">∞</span>
-                    <span class="logo-text">Agent Swarm</span>
+                    <div>
+                        <span class="logo-text">Agent Swarm</span>
+                        <span class="product-label">CloudWalk AI</span>
+                    </div>
                 </div>
             </div>
-            
+
             <div class="users-section">
                 <div class="section-header">
                     <span>Usuários</span>
@@ -27,7 +32,7 @@
                     <!-- Users will be added here dynamically -->
                 </div>
             </div>
-            
+
             <div class="sidebar-footer">
                 <div class="api-status" id="apiStatus">
                     <span class="status-dot"></span>
@@ -35,16 +40,17 @@
                 </div>
             </div>
         </aside>
-        
+
         <!-- Main Chat Area -->
         <main class="main-content">
             <!-- Empty State -->
             <div class="empty-state" id="emptyState">
                 <div class="empty-icon">💬</div>
                 <h2>Selecione ou adicione um usuário</h2>
-                <p>Clique no botão + na barra lateral para adicionar um novo usuário e começar a conversar com o Agent Swarm.</p>
+                <p>Clique no botão + na barra lateral para adicionar um novo usuário e começar a conversar com o Agent
+                    Swarm.</p>
             </div>
-            
+
             <!-- Chat Container (hidden initially) -->
             <div class="chat-container" id="chatContainer" style="display: none;">
                 <div class="chat-header">
@@ -55,26 +61,28 @@
                             <span class="user-id" id="currentUserId">ID: -</span>
                         </div>
                     </div>
-                    <div class="agent-indicator">
-                        <span class="agent-badge" id="agentBadge">-</span>
+                    <div class="header-actions">
+                        <div class="agent-indicator">
+                            <span class="agent-badge" id="agentBadge">-</span>
+                        </div>
+                        <button class="btn-clear-chat" onclick="clearCurrentChat()" title="Limpar conversa">
+                            🗑️ Limpar
+                        </button>
                     </div>
                 </div>
-                
+
                 <div class="messages-container" id="messagesContainer">
                     <!-- Messages will appear here -->
                 </div>
-                
+
                 <div class="input-container">
                     <div class="input-wrapper">
-                        <textarea 
-                            id="messageInput" 
-                            placeholder="Digite sua mensagem..."
-                            rows="1"
-                            onkeydown="handleKeyDown(event)"
-                        ></textarea>
+                        <textarea id="messageInput" placeholder="Digite sua mensagem..." rows="1"
+                            onkeydown="handleKeyDown(event)"></textarea>
                         <button class="btn-send" onclick="sendMessage()" id="sendBtn">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
                             </svg>
                         </button>
                     </div>
@@ -85,24 +93,29 @@
             </div>
         </main>
     </div>
-    
-    <!-- Add User Modal -->
+
     <div class="modal-overlay" id="addUserModal" style="display: none;">
         <div class="modal">
             <div class="modal-header">
                 <h3>Adicionar Usuário</h3>
                 <button class="btn-close" onclick="hideAddUserModal()">×</button>
             </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="newUserName">Nome</label>
-                    <input type="text" id="newUserName" placeholder="Ex: João Silva">
-                </div>
-                <div class="form-group">
-                    <label for="newUserId">User ID</label>
-                    <input type="text" id="newUserId" placeholder="Ex: client789">
-                    <span class="hint">Use IDs do banco: client789, user_blocked</span>
-                </div>
+            <div class="form-group">
+                <label for="newUserName">Nome *</label>
+                <input type="text" id="newUserName" placeholder="Ex: João Silva" required>
+                <span class="hint">Nome do usuário (obrigatório)</span>
+            </div>
+            <div class="form-group">
+                <label for="newUserId">User ID (opcional)</label>
+                <input type="text" id="newUserId" list="userIdOptions" placeholder="Auto-gerado se vazio"
+                    oninput="onUserIdInput()">
+                <datalist id="userIdOptions">
+                    <option value="happy_customer">🟢 Ana Feliz - Cliente satisfeito</option>
+                    <option value="blocked_user">🔴 Carlos Bloqueado - Conta bloqueada</option>
+                    <option value="struggling_merchant">🟡 Lojista Corre Corre - Alto giro, saldo baixo</option>
+                    <option value="new_user_onboarding">🆕 Marina Nova - Pendente verificação</option>
+                </datalist>
+                <span class="hint">Deixe vazio para auto-gerar ou escolha da lista</span>
             </div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="hideAddUserModal()">Cancelar</button>
@@ -110,7 +123,21 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- Debug Modal -->
+    <div id="debugModal" class="debug-modal-overlay">
+        <div class="debug-modal">
+            <div class="debug-header">
+                <h3><span class="icon">⚙️</span> System Internals & Debug</h3>
+                <button class="close-debug" onclick="closeDebug()">&times;</button>
+            </div>
+            <div class="debug-content" id="debugContent">
+                <!-- Content will be injected by JS -->
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
+
 </html>

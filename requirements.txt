@@ -4,24 +4,31 @@ uvicorn[standard]>=0.27.0
 pydantic>=2.5.0
 pydantic-settings>=2.1.0
 python-dotenv>=1.0.0
+python-multipart>=0.0.9
 
-# LLM & AI
+# LLM & Agent Framework
 openai>=1.10.0
 langchain>=0.1.0
 langchain-openai>=0.0.5
 langchain-community>=0.0.16
-crewai>=1.0.0
+crewai>=0.121.0
 crewai-tools
 
-# RAG & Vector Store (deixar CrewAI resolver a versão do ChromaDB)
-chromadb
+# RAG & Vector Store
+chromadb>=0.4.24
 beautifulsoup4>=4.12.0
 lxml>=5.1.0
+requests>=2.31.0
 
-# Tools
+# External Tools
+tavily-python>=0.3.1
 duckduckgo-search>=4.1.0
 
-# Testing
+# Testing & Quality
 pytest>=7.4.0
 pytest-asyncio>=0.23.0
+pytest-xdist>=3.5.0
+pytest-json-report>=1.5.0
 httpx>=0.26.0
+pytest-cov>=4.1.0
+pytest-timeout>=2.2.0

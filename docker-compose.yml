@@ -1,19 +1,44 @@
-version: '3.8'
+# ============================================================================
+# CloudWalk Agent Swarm - Docker Compose Configuration
+# ============================================================================
+# Purpose: Orchestrate the multi-agent system with data persistence
+# Usage: docker-compose up --build
+# ============================================================================
 
 services:
+  # Main agent swarm application
   agent-swarm:
     build: .
     image: cloudwalk-agent-swarm
     container_name: agent-swarm
+
+    # Port mapping: host:container
     ports:
-      - "8000:8000"
+      - "8080:8080"
+
+    # Volume mounts for data persistence
     volumes:
+      # ChromaDB vector store - persists RAG embeddings
       - ./data:/app/data
+      # Environment variables file - API keys and configuration
       - ./.env:/app/.env
+
+    # Environment variables
     environment:
       - PYTHONUNBUFFERED=1
-    restart: unless-stopped
-    # Use generic profile to avoid auto-starting if needed
-    profiles: [ "default" ]
 
-# To run: docker-compose up --build
+    # Restart policy - automatically recover from crashes
+    restart: unless-stopped
+    # Optional profile for controlled startup
+    # profiles: [ "default" ]
+
+    # ============================================================================
+    # Usage Instructions:
+    # ============================================================================
+    # 1. Copy .env.example to .env and configure API keys
+    # 2. Run: docker-compose up --build
+    # 3. Access:
+    #    - Frontend: http://localhost:8080
+    #    - API Docs: http://localhost:8080/docs
+    #    - Health: http://localhost:8080/health
+    # ============================================================================

@@ -1,3 +1,7 @@
+# ============================================================================
+# CloudWalk Agent Swarm - Git Ignore Configuration
+# ============================================================================
+
 # Python
 __pycache__/
 *.py[cod]
@@ -26,9 +30,11 @@ wheels/
 # Environment
 .env
 .env.local
+.env.*.local
 
-# Data
-data/
+# Data (ChromaDB, SQLite - keep structure, ignore data)
+data/chromadb/
+data/database/
 *.db
 *.sqlite
 *.sqlite3
@@ -52,6 +58,35 @@ logs/
 .pytest_cache/
 .coverage
 htmlcov/
+*.cover
+.hypothesis/
+
+# Test artifacts (temporary reports)
+comprehensive_test_report_*.md
+test_result*.txt
+*_results.txt
+*_output.txt
+debug_output.txt
 
 # Docker
 docker-compose.override.yml
+
+# Backup files
+*.bak
+*.backup
+*.old
+*~
+
+# Duplicate/optimized files
+*_optimized.py
+*_old.py
+*_backup.py
+
+# Documentation artifacts (keep only final versions)
+DEEP_DIVE_AUDIT.md
+PROJECT_ANALYSIS.md
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store

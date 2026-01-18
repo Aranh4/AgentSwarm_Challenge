@@ -1,22 +1,22 @@
 """
-Entry point da aplicação - Garante carregamento correto de variáveis de ambiente
+Application entry point - Ensures correct environment variable loading
 
-Execute com: python -m src.main
-ou para desenvolvimento: python -m uvicorn src.main:app --reload
+Run with: python -m src.main
+or for development: python -m uvicorn src.main:app --reload
 """
 
-# PRIMEIRO: Carregar variáveis de ambiente
+# FIRST: Load environment variables
 from src.env_loader import *  # noqa: F401, F403
 
 import os
 print("\n" + "="*80)
-print("VERIFICACAO DE VARIAVEIS DE AMBIENTE")
+print("ENVIRONMENT VARIABLE CHECK")
 print("="*80)
-print(f"OPENAI_API_KEY carregada: {bool(os.environ.get('OPENAI_API_KEY'))}")
+print(f"OPENAI_API_KEY loaded: {bool(os.environ.get('OPENAI_API_KEY'))}")
 print(f"ENVIRONMENT: {os.environ.get('ENVIRONMENT', 'development')}")
 print("="*80 + "\n")
 
-# Agora importar a aplicação
+# Now import the application
 if __name__ == "__main__":
     from src.main import app
     import uvicorn
@@ -24,7 +24,7 @@ if __name__ == "__main__":
     uvicorn.run(
         app,
         host="127.0.0.1",
-        port=8000,
+        port=8080,
         reload=True
     )
 

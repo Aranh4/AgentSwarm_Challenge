@@ -15,16 +15,18 @@ def create_output_processor() -> Agent:
     """Creates the Output Processing Agent"""
     llm = ChatOpenAI(
         model=settings.default_model,
-        temperature=0.3,  # Allow some creativity for text improvement
+        temperature=0,  # CRITICAL: Zero creativity = strict instruction following
         openai_api_key=settings.openai_api_key
     )
     
     return Agent(
-        role="Output Quality Specialist",
-        goal="Ensure responses are in the correct language, high quality, and InfinitePay-branded",
+        role="Output Quality Specialist & Translator",
+        goal="Ensure responses match the user's query language (Portuguese or English) with high quality and InfinitePay branding",
         backstory="""
-        You are a professional Output Processor for InfinitePay's AI system.
+        You are a professional Output Processor and Translator for InfinitePay's AI system.
         Your job is to take raw agent responses and polish them for end users.
+        
+        CRITICAL RESPONSIBILITY: You MUST detect the user's query language and translate the response if needed.
         
         ABOUT INFINITEPAY (use this knowledge for context and tone):
         - InfinitePay is a Brazilian fintech by CloudWalk, serving 4+ million entrepreneurs.
@@ -48,13 +50,15 @@ def create_output_processor() -> Agent:
         allow_delegation=False
     )
 
-def process_output(query: str, raw_response: str) -> str:
+def process_output(query: str, raw_response: str, target_language: str = None) -> str:
     """
     Process raw agent output into polished user-facing response.
+    CRITICAL: Ensures response language matches query language.
     
     Args:
         query: Original user query
         raw_response: Raw response from Knowledge/Support agent
+        target_language: Language detected by Router ("Portuguese" or "English")
         
     Returns:
         Polished response matching query language and InfinitePay tone
@@ -62,59 +66,67 @@ def process_output(query: str, raw_response: str) -> str:
     logger.info(f"Processing output for query: '{query[:50]}...'")
     
     try:
-        # Detect target language using regex
-        pt_pattern = r'\b(que|quem|qual|quais|quanto|quantos|onde|como|por|para|com|em|um|uma|os|as|ao|dos|das|é|são|minha|meu|está|estão)\b'
-        is_pt = bool(re.search(pt_pattern, query.lower()))
-        target_lang = "Portuguese" if is_pt else "English"
+        # Use Router-detected language if available, otherwise fallback to regex
+        if target_language:
+            logger.info(f"🎯 [Output Processor] Using Router-detected language: {target_language}")
+        else:
+            # Fallback: Programmatic detection (if Router didn't provide)
+            query_lower = query.lower()
+            
+            # Comprehensive Portuguese stopwords
+            pt_stopwords = [
+                'que', 'quem', 'qual', 'quais', 'quanto', 'quantos', 'onde', 'como',
+                'por', 'para', 'com', 'sem', 'em', 'de', 'do', 'da', 'dos', 'das',
+                'no', 'na', 'nos', 'nas', 'ao', 'aos', 'à', 'às',
+                'um', 'uma', 'uns', 'umas', 'o', 'a', 'os', 'as',
+                'meu', 'minha', 'meus', 'minhas', 'seu', 'sua', 'seus', 'suas',
+                'é', 'são', 'está', 'estão', 'estou', 'estava', 'foram', 'foi',
+                'tem', 'têm', 'tinha', 'temos', 'tenho',
+                'minha', 'minhas', 'mostra', 'mostre', 'ver', 'saldo', 'transações'
+            ]
+            
+            # Count Portuguese stopwords in query
+            pt_count = sum(1 for word in pt_stopwords if f' {word} ' in f' {query_lower} ' or query_lower.startswith(f'{word} ') or query_lower.endswith(f' {word}'))
+            
+            # Detect language
+            target_language = "Portuguese" if pt_count >= 1 else "English" # If at least 1 PT stopword, it's Portuguese
+            logger.info(f"🔍 [Output Processor] Fallback detection: {target_language} (PT stopwords: {pt_count})")
         
-        logger.info(f"Detected target language: {target_lang}")
-        
-        # Create processing task
+        # STEP 2: Create ULTRA-SIMPLE, DIRECT translation task
         agent = create_output_processor()
+        
+        # Detect response language (simple check)
+        resp_lower = raw_response.lower()
+        resp_has_pt = sum(1 for w in ['seu', 'sua', 'você', 'são', 'está', 'para', 'com', 'transações'] if w in resp_lower)
+        resp_has_en = sum(1 for w in ['your', 'you', 'are', 'is', 'the', 'for', 'with', 'transactions'] if w in resp_lower)
+        response_language = "Portuguese" if resp_has_pt > resp_has_en else "English"
+        
+        logger.info(f"🔍 Response language detected: {response_language} (PT:{resp_has_pt}, EN:{resp_has_en})")
+        
+        # Determine if translation is needed
+        needs_translation = (target_language != response_language)
+        action = "TRANSLATE" if needs_translation else "IMPROVE"
+        
+        logger.info(f"⚙️ Action: {action} (Target: {target_language}, Response: {response_language})")
         
         task = Task(
             description=f"""
-Process this agent response for a user.
+QUERY LANGUAGE: {target_language}
+RESPONSE LANGUAGE: {response_language}
+ACTION REQUIRED: {action}
 
-USER QUERY (for context): "{query}"
-RAW AGENT RESPONSE: "{raw_response}"
+RAW RESPONSE:
+{raw_response}
 
-TARGET LANGUAGE: {target_lang}
+INSTRUCTIONS:
+{f"1. TRANSLATE the entire response from {response_language} to {target_language}" if needs_translation else "1. Keep the response in " + target_language + ", just improve quality"}
+2. Remove technical IDs (happy_customer → you/você)
+3. Keep all facts: numbers, dates, names intact
+4. ⛔ REMOVE any "Fontes:", "Sources:", or URL lists from the text body. URLs belong in the separate sources field, NOT in the response text.
 
-YOUR TASK:
-1. REWRITE the response in {target_lang}
-2. Improve text quality:
-   - Fix grammar and spelling
-   - Make it clear and concise
-   - Use professional but friendly tone
-   - Remove redundancies
-7. PRESERVE exactly:
-   - All factual data (numbers, dates, names)
-   - Brand terms: InfinitePay, InfiniteSmart, InfiniteTap, Confere
-   - Technical terms: Pix, débito, crédito, taxa, etc. (Keep these in Portuguese if they are proper nouns/concepts)
-   - Currency values: R$, %, digits
-
-8. TRANSLATIONS (Important):
-   - "Maquininha Smart" (in English) -> "Smart POS" or "Card Machine"
-   - but keep "InfinitePay" as is.
-
-9. AGGRESSIVE TRANSLATION OF KEYS:
-   - You MUST translate these specific keys if found:
-     - "Date:" -> "Data:" (PT)
-     - "Type:" -> "Tipo:" (PT)
-     - "Amount:" -> "Valor:" (PT)
-     - "Status:" -> "Status:" (PT)
-   - Do NOT leave "Date" or "Type" in English when output is Portuguese.
-
-10. CLEANUP CONTRADICTIONS:
-    - If the response contains helpful data BUT ALSO says "I cannot help" or "I am unable to assist", REMOVE the negative refusal.
-    - Keep the helpful data only.
-
-11. If response contains "Sources:", keep it at the end
-
-OUTPUT ONLY THE FINAL PROCESSED TEXT. NO EXPLANATIONS OR META-COMMENTS.
+OUTPUT: Final text in {target_language} ONLY. No explanations, no source lists.
 """,
-            expected_output=f"Polished response in {target_lang}, preserving all facts",
+            expected_output=f"Response in {target_language} without inline source URLs",
             agent=agent
         )
         
@@ -129,11 +141,10 @@ OUTPUT ONLY THE FINAL PROCESSED TEXT. NO EXPLANATIONS OR META-COMMENTS.
         result = crew.kickoff()
         processed_text = str(result).strip()
         
-        logger.info(f"Processing complete. Output length: {len(processed_text)} chars")
+        logger.info(f"✅ Output processing complete. Target: {target_language}, Action: {action}, Length: {len(processed_text)} chars")
         return processed_text
         
     except Exception as e:
         logger.error(f"Error in Output Processor: {e}", exc_info=True)
-        # Fallback: return original response if processing fails
         logger.warning("Returning raw response due to processing error")
         return raw_response

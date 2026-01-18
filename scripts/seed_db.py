@@ -42,17 +42,27 @@ def create_tables(conn):
 
 
 def seed_users(conn):
-    """Adiciona usuários fake - INCLUI client789 para testes obrigatórios"""
+    """Adiciona usuários fake para testes manuais e automatizados"""
     cursor = conn.cursor()
     
     users = [
-        # ⚠️ OBRIGATÓRIO: client789 é usado nos cenários de teste da proposta
+        # --- TEST ARCHETYPES (Cruciais para comprehensive_test.py) ---
+        
+        # 1. Happy Customer: Satisfeito, saldo alto, tudo funcionando
+        ("happy_customer", "Ana Feliz", "ana.feliz@email.com", "active", "premium", 15250.00, "2023-01-15"),
+        
+        # 2. Blocked User: Conta bloqueada, suspeita de fraude
+        ("blocked_user", "Pedro Bloqueado", "pedro.block@email.com", "blocked", "basic", 0.00, "2023-02-10"),
+        
+        # 3. Struggling Merchant: Alto volume de vendas, mas transfere tudo (saldo baixo).
+        #    Update: Renomeado de 'broke_merchant' para exemplificar melhor o fluxo de caixa
+        ("struggling_merchant", "Lojista Corre Corre", "lojista.corre@email.com", "active", "basic", 45.50, "2023-06-15"),
+        
+        # 4. New User: Onboarding, pendente de verificação
+        ("new_user_onboarding", "Marina Nova", "marina.nova@email.com", "pending_verification", "basic", 0.00, "2024-01-20"),
+        
+        # --- GENERIC USERS ---
         ("client789", "João Silva - Restaurante", "joao.silva@email.com", "active", "premium", 1250.50, "2023-01-15"),
-        ("user001", "Maria Santos - Loja de Roupas", "maria.santos@email.com", "active", "basic", 3400.00, "2023-03-20"),
-        ("user002", "Pedro Oliveira - Bar", "pedro.oliveira@email.com", "blocked", "premium", 0.00, "2023-02-10"),
-        ("user003", "Ana Costa - E-commerce", "ana.costa@email.com", "active", "enterprise", 15000.00, "2023-04-05"),
-        ("user004", "Carlos Ferreira - Freelancer", "carlos.ferreira@email.com", "pending", "basic", 0.00, "2024-01-01"),
-        ("user005", "Lucia Almeida - Salão de Beleza", "lucia.almeida@email.com", "active", "premium", 560.20, "2023-06-15"),
     ]
     
     cursor.executemany("""
@@ -60,46 +70,82 @@ def seed_users(conn):
         VALUES (?, ?, ?, ?, ?, ?, ?)
     """, users)
     
+    # Update block reason for blocked_user (if schema allowed, but for now we simulate via status)
+    # If we had a block_reason column, we'd update it here.
+    # checking schema... create_tables doesn't have block_reason.
+    # Let's add it dynamically if we want better realism, or just rely on 'blocked' status.
+    # The tool 'get_user_info' checks 'block_reason' column if status is blocked.
+    # We should ensure the table has it or the tool handles it.
+    # Looking at create_tables, it does NOT have block_reason.
+    # Let's alter table to add it safely.
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN block_reason TEXT")
+    except sqlite3.OperationalError:
+        pass # Column likely exists
+        
+    cursor.execute("UPDATE users SET block_reason = 'Suspicious Activity Detected' WHERE user_id = 'blocked_user'")
+    
     conn.commit()
     print(f"[OK] {len(users)} usuarios inseridos")
 
 
 def seed_transactions(conn):
-    """Adiciona transações fake"""
+    """Adiciona transações com padrões específicos para cada arquétipo"""
     cursor = conn.cursor()
-    
-    user_ids = ["client789", "user001", "user002", "user003", "user004", "user005"]
-    types = ["credit", "debit", "pix", "boleto"]
-    statuses = ["completed", "pending", "failed"]
     
     transactions = []
     
-    for i in range(50):
-        user_id = random.choice(user_ids)
-        amount = round(random.uniform(10.0, 500.0), 2)
-        tx_type = random.choice(types)
-        status = random.choice(statuses)
-        
-        # Data aleatória nos últimos 30 dias
-        days_ago = random.randint(0, 30)
-        created_at = (datetime.now() - timedelta(days=days_ago)).isoformat()
-        
-        transaction_id = f"tx_{i:04d}"
-        
+    # --- 1. Happy Customer: Healthy Mix ---
+    for i in range(5):
         transactions.append((
-            transaction_id,
-            user_id,
-            amount,
-            tx_type,
-            status,
-            created_at
+            f"tx_happy_{i}", "happy_customer", 
+            random.uniform(100, 500), "credit", "completed", 
+            (datetime.now() - timedelta(days=i)).isoformat()
         ))
+    
+    # --- 2. Blocked User: Failed Transactions ---
+    transactions.append((
+        "tx_blocked_1", "blocked_user", 
+        5000.00, "transfer_out", "failed", 
+        (datetime.now() - timedelta(minutes=30)).isoformat()
+    ))
+    transactions.append((
+         "tx_blocked_2", "blocked_user", 
+         120.00, "pix", "completed", # Old successful tx
+         (datetime.now() - timedelta(days=60)).isoformat()
+    ))
+    
+    # --- 3. Struggling Merchant: High Velocity (Sales IN, Pix OUT) ---
+    # Sales (Money coming in)
+    for i in range(3):
+         transactions.append((
+            f"tx_struggle_in_{i}", "struggling_merchant", 
+            random.uniform(200, 800), "credit", "completed", 
+            (datetime.now() - timedelta(hours=i*2)).isoformat()
+        ))
+    # Transfers (Money going out - draining balance)
+    transactions.append((
+        "tx_struggle_out_1", "struggling_merchant", 
+        1500.00, "pix_out", "completed", 
+        (datetime.now() - timedelta(hours=1)).isoformat()
+    ))
+    
+    # --- 4. New User: No transactions ---
+    # (Intentionally empty)
     
     cursor.executemany("""
         INSERT OR REPLACE INTO transactions 
         (transaction_id, user_id, amount, type, status, created_at)
         VALUES (?, ?, ?, ?, ?, ?)
     """, transactions)
+    
+    # Add failure reason for blocked user (schema update needed?)
+    try:
+        cursor.execute("ALTER TABLE transactions ADD COLUMN failure_reason TEXT")
+    except sqlite3.OperationalError:
+        pass
+        
+    cursor.execute("UPDATE transactions SET failure_reason = 'Account Blocked' WHERE transaction_id = 'tx_blocked_1'")
     
     conn.commit()
     print(f"[OK] {len(transactions)} transacoes inseridas")

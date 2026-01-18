@@ -20,9 +20,9 @@ class TestDatabase:
         """Users table should have mock data."""
         from src.db.client import db_client
         
-        user = db_client.get_user("client789")
+        user = db_client.get_user("happy_customer")
         
-        assert user is not None, "client789 should exist (required for tests)"
+        assert user is not None, "happy_customer should exist (required for tests)"
         assert "name" in user
         assert "balance" in user
     
@@ -30,7 +30,7 @@ class TestDatabase:
         """Blocked user should have block reason."""
         from src.db.client import db_client
         
-        user = db_client.get_user("user_blocked")
+        user = db_client.get_user("blocked_user")
         
         assert user is not None
         assert user["account_status"] == "blocked"

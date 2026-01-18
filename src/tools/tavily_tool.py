@@ -38,7 +38,8 @@ class TavilyTool(BaseTool):
                 "max_results": 3
             }
             
-            response = requests.post(url, json=payload, timeout=15)
+            # Timeout increased to avoid "Read timed out" on tests (Tavily can be slow)
+            response = requests.post(url, json=payload, timeout=45)
             response.raise_for_status()
             data = response.json()
             
@@ -57,8 +58,18 @@ class TavilyTool(BaseTool):
                     f"Content: {result.get('content')}\n"
                     f"---"
                 )
+            
+            final_output = "\n".join(results)
+            
+            from src.utils.debug_tracker import log_tool_usage
+            log_tool_usage(
+                tool_name="Web Search (Tavily)",
+                input_str=query,
+                output_str=final_output,
+                metadata={"results_count": len(data.get("results", []))}
+            )
                 
-            return "\n".join(results)
+            return final_output
 
         except Exception as e:
             logger.error(f"Tavily search error: {e}")

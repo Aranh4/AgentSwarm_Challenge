@@ -1,41 +1,38 @@
-import logging
-import os
+"""
+Knowledge Agent - Optimized
+Handles InfinitePay (RAG) and general knowledge (Web Search) queries.
+Translation removed (handled by Output Processor).
+"""
+
 from crewai import Agent, Task, Crew, Process
 from langchain_openai import ChatOpenAI
-from langchain.tools import tool
-
 from src.config import settings
 from src.tools.rag_tool import rag_search_tool
 from src.tools.tavily_tool import tavily_search_tool
+import logging
+import re
 
 logger = logging.getLogger(__name__)
 
 # ============================================================================
-# AGENT DEFINITION
+# AGENT CREATION
 # ============================================================================
-
-from datetime import datetime
 
 def create_knowledge_agent() -> Agent:
     """
-    Creates the Knowledge Agent specialized in RAG and Web Search.
-    Now uses Tavily for better web search results.
+    Creates a Knowledge Agent responsible for answering product inquiries
+    and general knowledge questions using RAG or Web Search.
     """
     llm = ChatOpenAI(
         model=settings.default_model,
-        api_key=settings.openai_api_key,
-        temperature=0.1
+        temperature=0,  # Factual accuracy
+        openai_api_key=settings.openai_api_key
     )
     
-    current_date = datetime.now().strftime("%Y-%m-%d")
-    
-    agent = Agent(
-        role='Knowledge Specialist',
-        goal=f'Provide accurate information about InfinitePay products and general knowledge. Today is {current_date}.',
-        backstory=f"""You are a Data Retrieval Specialist for InfinitePay.
-        Your ONLY job is to find accurate information using your tools.
-        
-        Current Date: {current_date}. You are aware of the current year and date.
+    return Agent(
+        role="Knowledge Specialist",
+        goal="Answer questions about InfinitePay products (via RAG) and general topics (via Web Search)",
+        backstory="""You are InfinitePay's Knowledge Specialist.
         
         TOOL SELECTION RULES:
         1. For InfinitePay questions (products, fees, Tap to Pay, InfiniteTap, Phone as Machine, **Tap to Pay on Phone**):
@@ -54,8 +51,9 @@ def create_knowledge_agent() -> Agent:
         - You MUST list source URLs at the end: "Sources: [url1], [url2]"
         
         OUTPUT RULE:
-        - Return RAW factual data. Do NOT worry about language, tone, or formatting.
-        - Just focus on accuracy and completeness of information.""",
+        - Return RAW factual data.
+        - BE CONCISE. Do not write long paragraphs. Bullet points are better.
+        - Do NOT worry about language/tone (Output Processor handles it).""",
         tools=[rag_search_tool, tavily_search_tool],
         llm=llm,
         verbose=True,
@@ -68,20 +66,38 @@ def create_knowledge_agent() -> Agent:
 # TASKS
 # ============================================================================
 
-def create_knowledge_task(agent: Agent, query: str) -> Task:
+def create_knowledge_task(agent: Agent, query: str, query_language: str = "Portuguese") -> Task:
     """
     Creates a task for the Knowledge Agent to answer a query.
+    Args:
+        query_language: Target language for response ("Portuguese" or "English")
     """
     return Task(
         description=f"""
-        Answer the following query using your tools (RAG or Web Search).
-        Query: {query}
-        
-        If it's about InfinitePay, use RAG.
-        If it's about general knowledge/news, use Web Search.
-        MATCH THE USER'S LANGUAGE.
-        """,
-        expected_output="A helpful, accurate answer based on the retrieved information, citing sources.",
+Query: "{query}"
+
+🎯 TOOL SELECTION RULES (READ CAREFULLY):
+
+1. **InfinitePay/CloudWalk Questions** (products, services, fees):
+   ✅ ALWAYS use RAG Tool FIRST (mandatory)
+   ✅ MAY also use Web Search for comparisons/market context
+   ❌ NEVER answer without consulting RAG
+
+2. **General Knowledge** (news, sports, current events):
+   ✅ Use Web Search Tool
+   
+3. **Examples**:
+   - "Quais as taxas?" → RAG (must) + Web (optional for comparison)
+   - "Como funciona Tap to Pay?" → RAG only
+   - "Último jogo do Palmeiras?" → Web Search only
+   - "InfinitePay vs PagSeguro taxas?" → RAG (InfinitePay) + Web (competitor)
+
+📋 OUTPUT REQUIREMENTS:
+- Cite sources at the end: "Sources: [url1], [url2]"
+- Be concise, factual, bullet points preferred
+- **CRITICAL:** Response MUST be in {query_language}. RAG content is in Portuguese - translate if needed.
+""",
+        expected_output=f"A helpful, accurate answer in {query_language}, citing sources.",
         agent=agent
     )
 
@@ -89,14 +105,16 @@ def create_knowledge_task(agent: Agent, query: str) -> Task:
 # EXECUTION FUNCTION
 # ============================================================================
 
-def run_knowledge_agent(query: str) -> str:
+def run_knowledge_agent(query: str, query_language: str = "Portuguese") -> str:
     """
     Orchestrates the Knowledge Agent execution.
+    Args:
+        query_language: Target language for response
     """
-    logger.info(f"Knowledge Agent starting for query: {query}")
+    logger.info(f"Knowledge Agent starting (lang: {query_language}): {query}")
     
     agent = create_knowledge_agent()
-    task = create_knowledge_task(agent, query)
+    task = create_knowledge_task(agent, query, query_language=query_language)
     
     crew = Crew(
         agents=[agent],
@@ -108,71 +126,26 @@ def run_knowledge_agent(query: str) -> str:
     result = crew.kickoff()
     return str(result)
 
-def process_query(query: str, user_id: str = "unknown") -> dict:
+def process_query(query: str, user_id: str = "unknown", query_language: str = "Portuguese") -> dict:
     """
     Adapter function for Router Agent compatibility.
+    Args:
+        query_language: Target language for response
     """
     try:
-        response_text = run_knowledge_agent(query)
+        response_text = run_knowledge_agent(query, query_language=query_language)
         
-        # --- TRANSLATION LAYER (ROBUSTNESS) ---
-        # Ensure response matches query language regardless of RAG context
-        final_text = response_text
-        try:
-            translation_llm = ChatOpenAI(
-                model=settings.default_model,
-                api_key=settings.openai_api_key,
-                temperature=0.0
-            )
-            
-            # Regex to detect Portuguese (stopwords/question words)
-            pt_pattern = r'\b(que|quem|qual|quais|quanto|quantos|onde|como|por|para|com|em|um|uma|os|as|ao|dos|das|é|são)\b'
-            is_pt = bool(re.search(pt_pattern, query.lower()))
-            target_lang = "Portuguese" if is_pt else "English"
-            
-            prompt = f"""
-            Task: REWRITE the "Agent Response" to match the language of the "User Query".
-            
-            User Query: "{query}"
-            Agent Response: "{response_text}"
-            
-            Instructions:
-            1. Identify the language of the User Query (English or Portuguese).
-            2. REWRITE the Agent Response in that SAME language.
-            3. PRESERVE strict proper nouns (InfinitePay, Maquininha Smart, Confere).
-            4. TRANSLATE all normal words (e.g., "taxas" -> "fees", "custa" -> "costs", "maquininha" -> "machine" if generic).
-            
-            OUTPUT ONLY THE REWRITTEN TEXT.
-            """
-            
-            result = translation_llm.invoke(prompt)
-            if result and result.content:
-                final_text = result.content.strip()
-                
-        except Exception as t_err:
-            logger.warning(f"Translation layer failed: {t_err}")
-            final_text = response_text
-        
-        response_text = final_text
-        # ----------------------------------------
-        
-        # Extract URLs
+        # Extract URLs from response
         import re
-        # Capture URLs, excluding common trailing punctuation
-        # pattern matches http/https followed by non-whitespace, stopping at punctuation often used as delimiters
         urls = re.findall(r'(https?://[^\s,\]\)]+)', response_text)
-        
-        # Clean specific trailing characters just in case
         clean_urls = [u.rstrip('.,)]') for u in urls]
         
         # Remove "Sources: ..." block from text for cleaner UI
-        # We look for "Sources:" or "Source:" or "Fontes:" at the start of a line (case insensitive)
         clean_text = response_text
         split_pattern = r'(?i)\n\s*(?:Sources|Source|Fontes|Fonte):'
         parts = re.split(split_pattern, response_text)
         
         if len(parts) > 1:
-            # Take everything before the sources block
             clean_text = parts[0].strip()
         
         return {
