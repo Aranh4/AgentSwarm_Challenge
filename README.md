@@ -519,16 +519,17 @@ cloudwalk-agent-swarm/
 
 ---
 
-## 🤖 LLM Usage in Development
+## 🤖 Initial Brainstorming & LLM Usage
 
 This project was developed with AI assistance for:
 
-- **Architecture** — Framework comparisons (CrewAI vs LangGraph)
-- **Implementation** — Debugging, prompt engineering
-- **Testing** — Scenario generation, edge case identification
-- **Documentation** — README structure, diagrams
+- **Initial Brainstorming** — Project scoping and tool selection
+- **Implementation** — Debugging and Prompt Engineering
+- **Testing** — Web Scraping Agent for Scenario Generation and Identification
+- **Documentation** — Diagrams and README outline
+- **Development Tooling** — Leveraged **Antigravity** (Google tool idea) for rapid prototyping and code orchestration
 
-> All code was manually reviewed, tested, and validated. LLMs accelerated development but did not replace human judgment.
+> All code was manually reviewed, tested, and validated.
 
 ---
 
@@ -538,5 +539,5 @@ Developed for the **CloudWalk AI Challenge**.
 
 ---
 
-**Author:** Caio Garcia  
+**Author:** Caio Aranha  
 **Date:** January 2026
