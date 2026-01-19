@@ -18,8 +18,8 @@ const STORAGE_KEYS = {
 const TEST_ARCHETYPES = {
     'happy_customer': { name: 'Ana Feliz', avatar: 'A', description: '🟢 Cliente satisfeito' },
     'blocked_user': { name: 'Carlos Bloqueado', avatar: 'C', description: '🔴 Conta bloqueada' },
-    'struggling_merchant': { name: 'Lojista Corre Corre', avatar: 'L', description: '🟡 Alto giro, saldo baixo' },
-    'new_user_onboarding': { name: 'Marina Nova', avatar: 'M', description: '🆕 Pendente verificação' }
+    'broke_merchant': { name: 'Pedro Quebrado', avatar: 'P', description: '🟡 Alto giro, saldo zerado' },
+    'empty_user': { name: 'Marina Nova', avatar: 'M', description: '🆕 Sem histórico' }
 };
 
 // ===========================================

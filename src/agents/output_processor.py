@@ -124,6 +124,13 @@ INSTRUCTIONS:
 3. Keep all facts: numbers, dates, names intact
 4. ⛔ REMOVE any "Fontes:", "Sources:", or URL lists from the text body. URLs belong in the separate sources field, NOT in the response text.
 
+LOGIC CHECK (CRITICAL for Collaborative Queries):
+- If the input contains a User Balance and a Product Price:
+  - COMPARE them.
+  - IF Balance >= Price: Say "Yes, you can buy it".
+  - IF Balance < Price: Say "No, your balance is insufficient".
+  - Cite the exact numbers (e.g. "Your balance is R$ X and the product costs R$ Y").
+
 OUTPUT: Final text in {target_language} ONLY. No explanations, no source lists.
 """,
             expected_output=f"Response in {target_language} without inline source URLs",

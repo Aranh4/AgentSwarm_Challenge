@@ -61,14 +61,18 @@ def run_collaborative_query(query: str, user_id: str, query_language: str = "Por
 User ID: {user_id}
 Query: "{query}"
 
-Gather relevant user context:
-1. ALWAYS use get_user_info (account status is critical)
-2. Use get_user_transactions ONLY if query mentions payments/transfers/history
-3. Use get_user_cards ONLY if query mentions cards/limits
+OBJECTIVE: Gather user financial data to answer the query.
 
-Return a concise summary of findings.
+MANDATORY ACTIONS:
+1. EXECUTE tool `get_user_info` to get the CURRENT BALANCE and status. (CRITICAL)
+2. EXECUTE tool `get_user_transactions` IF the query mentions history/spending.
+
+OUTPUT GUIDELINES:
+- You MUST report the exact numbers found in the tool output.
+- If you cannot run the tool, say "TOOL_FAILURE".
+- Do NOT guess the balance.
 """,
-                expected_output="Concise user profile with relevant data only",
+                expected_output="Raw data summary including: Balance, Status, Recent Transactions (if relevant).",
                 agent=agent
             )
             crew = Crew(agents=[agent], tasks=[task], verbose=False)
@@ -87,10 +91,25 @@ Return a concise summary of findings.
             
             return result, list(set(clean_urls))
         
+        # Capture current tracker instance manually
+        from src.utils.debug_tracker import get_tracker_instance, set_tracker_instance
+        current_tracker = get_tracker_instance()
+
+        # Wrappers to set the tracker in the new thread
+        def run_support_safe():
+            if current_tracker:
+                set_tracker_instance(current_tracker)
+            return run_support()
+
+        def run_knowledge_safe():
+            if current_tracker:
+                set_tracker_instance(current_tracker)
+            return run_knowledge()
+        
         # Run both in parallel using ThreadPoolExecutor
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-            support_future = executor.submit(run_support)
-            knowledge_future = executor.submit(run_knowledge)
+            support_future = executor.submit(run_support_safe)
+            knowledge_future = executor.submit(run_knowledge_safe)
             
             support_result = support_future.result()
             knowledge_result, knowledge_sources = knowledge_future.result()

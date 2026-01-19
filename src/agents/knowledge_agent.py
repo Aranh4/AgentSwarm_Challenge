@@ -76,21 +76,30 @@ def create_knowledge_task(agent: Agent, query: str, query_language: str = "Portu
         description=f"""
 Query: "{query}"
 
-🎯 TOOL SELECTION RULES (READ CAREFULLY):
+🎯 TOOL SELECTION & QUERY REFINEMENT RULES:
 
 1. **InfinitePay/CloudWalk Questions** (products, services, fees):
-   ✅ ALWAYS use RAG Tool FIRST (mandatory)
-   ✅ MAY also use Web Search for comparisons/market context
-   ❌ NEVER answer without consulting RAG
+   ✅ ALWAYS use RAG Tool FIRST.
+   ✅ **CRITICAL:** Extract the CORE PRODUCT QUESTION. Remove personal context like "my balance", "for me", "my account".
+      - Input: "Can I buy Smart with *my balance*?" -> Tool Input: "Price of InfinitePay Smart machine"
+      - Input: "Is it good *for my business*?" -> Tool Input: "InfinitePay Smart features and benefits"
 
-2. **General Knowledge** (news, sports, current events):
-   ✅ Use Web Search Tool
-   
+   **STRATEGIC INFORMATION RETRIEVAL:**
+   - Detect the **User's Ultimate Intent** and search for the **Missing Data** needed to answer it.
+   - If Intent = **Affordability** ("Can I buy?", "Do I have enough?") -> **Missing Data = PRICE**.
+     *   *Action:* Search for "Price/Cost of [Product]".
+   - If Intent = **Quality/Suitability** ("Is it good?") -> **Missing Data = FEATURES**.
+     *   *Action:* Search for "Features and benefits of [Product]".
+
+   ✅ MAY use Web Search for comparisons.
+
+2. **General Knowledge** (news, sports):
+   ✅ Use Web Search Tool.
+
 3. **Examples**:
-   - "Quais as taxas?" → RAG (must) + Web (optional for comparison)
-   - "Como funciona Tap to Pay?" → RAG only
-   - "Último jogo do Palmeiras?" → Web Search only
-   - "InfinitePay vs PagSeguro taxas?" → RAG (InfinitePay) + Web (competitor)
+   - "Quais as taxas?" -> RAG: "Taxas InfinitePay"
+   - "Como funciona Tap to Pay?" -> RAG: "Tap to Pay instructions"
+   - "InfinitePay vs PagSeguro taxas?" -> RAG + Web
 
 📋 OUTPUT REQUIREMENTS:
 - Cite sources at the end: "Sources: [url1], [url2]"

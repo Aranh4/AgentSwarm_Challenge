@@ -23,8 +23,8 @@ class TestRouterClassification:
         ]
         
         for query in queries:
-            result = router.classify_query(query)
-            assert result in ["KNOWLEDGE", "BOTH"], f"'{query}' should be KNOWLEDGE, got {result}"
+            routing, language = router.classify_query(query)
+            assert routing in ["KNOWLEDGE", "BOTH"], f"'{query}' should be KNOWLEDGE, got {routing}"
     
     def test_support_query_classification(self, router):
         """Queries about user's personal data should route to SUPPORT."""
@@ -36,8 +36,8 @@ class TestRouterClassification:
         ]
         
         for query in queries:
-            result = router.classify_query(query)
-            assert result in ["SUPPORT", "BOTH"], f"'{query}' should be SUPPORT, got {result}"
+            routing, language = router.classify_query(query)
+            assert routing in ["SUPPORT", "BOTH"], f"'{query}' should be SUPPORT, got {routing}"
     
     def test_mixed_query_classification(self, router):
         """Queries with both types should route to BOTH."""
@@ -47,9 +47,9 @@ class TestRouterClassification:
         ]
         
         for query in queries:
-            result = router.classify_query(query)
+            routing, language = router.classify_query(query)
             # Mixed queries should ideally return BOTH, but SUPPORT is acceptable
-            assert result in ["BOTH", "SUPPORT", "KNOWLEDGE"], f"'{query}' classification failed"
+            assert routing in ["BOTH", "SUPPORT", "KNOWLEDGE"], f"'{query}' classification failed"
 
 
 class TestRouterExecution:
@@ -72,4 +72,5 @@ class TestRouterExecution:
         
         result = route_query("Why is my account blocked?", blocked_user_id)
         
-        assert "support" in result["agent_used"].lower()
+        # agent_used is now a list
+        assert "support" in result["agent_used"]

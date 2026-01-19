@@ -52,14 +52,13 @@ def seed_users(conn):
         ("happy_customer", "Ana Feliz", "ana.feliz@email.com", "active", "premium", 15250.00, "2023-01-15"),
         
         # 2. Blocked User: Conta bloqueada, suspeita de fraude
-        ("blocked_user", "Pedro Bloqueado", "pedro.block@email.com", "blocked", "basic", 0.00, "2023-02-10"),
+        ("blocked_user", "Carlos Bloqueado", "carlos.block@email.com", "blocked", "basic", 0.00, "2023-02-10"),
         
         # 3. Struggling Merchant: Alto volume de vendas, mas transfere tudo (saldo baixo).
-        #    Update: Renomeado de 'broke_merchant' para exemplificar melhor o fluxo de caixa
-        ("struggling_merchant", "Lojista Corre Corre", "lojista.corre@email.com", "active", "basic", 45.50, "2023-06-15"),
+        ("broke_merchant", "Pedro Quebrado", "pedro.quebrado@email.com", "active", "basic", 0.00, "2023-06-15"),
         
         # 4. New User: Onboarding, pendente de verificação
-        ("new_user_onboarding", "Marina Nova", "marina.nova@email.com", "pending_verification", "basic", 0.00, "2024-01-20"),
+        ("empty_user", "Marina Nova", "marina.nova@email.com", "active", "basic", 0.00, "2024-01-20"),
         
         # --- GENERIC USERS ---
         ("client789", "João Silva - Restaurante", "joao.silva@email.com", "active", "premium", 1250.50, "2023-01-15"),
@@ -119,13 +118,13 @@ def seed_transactions(conn):
     # Sales (Money coming in)
     for i in range(3):
          transactions.append((
-            f"tx_struggle_in_{i}", "struggling_merchant", 
+            f"tx_struggle_in_{i}", "broke_merchant", 
             random.uniform(200, 800), "credit", "completed", 
             (datetime.now() - timedelta(hours=i*2)).isoformat()
         ))
     # Transfers (Money going out - draining balance)
     transactions.append((
-        "tx_struggle_out_1", "struggling_merchant", 
+        "tx_struggle_out_1", "broke_merchant", 
         1500.00, "pix_out", "completed", 
         (datetime.now() - timedelta(hours=1)).isoformat()
     ))

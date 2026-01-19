@@ -35,7 +35,7 @@ class RagTool(BaseTool):
             searcher = get_rag_searcher()
             context, documents = searcher.search_and_format(
                 query=query,
-                top_k=3,
+                top_k=5,
                 include_metadata=True
             )
             sources = set([doc['metadata'].get('source', 'unknown') for doc in documents])

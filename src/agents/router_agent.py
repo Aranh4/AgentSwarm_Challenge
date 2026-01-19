@@ -135,7 +135,9 @@ Query: "{query}" ->"""
             if query_type == "BOTH":
                 logger.info(f"[Router] → Collaborative Crew (lang: {query_language})")
                 from src.crew.collaborative_crew import run_collaborative_query
-                return run_collaborative_query(query, user_id, query_language=query_language)
+                result = run_collaborative_query(query, user_id, query_language=query_language)
+                result["routing"] = "BOTH"
+                return result
             
             # Single agent queries: Direct function calls (faster)
             if query_type == "KNOWLEDGE":

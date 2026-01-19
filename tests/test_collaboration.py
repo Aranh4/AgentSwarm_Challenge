@@ -25,7 +25,7 @@ class TestCollaborativeCrew:
         assert "response" in result
         assert "agent_used" in result
         assert "sources" in result
-        assert "routing" in result
+        # "routing" is added by router_agent, not collaborative_crew directly
     
     def test_collaborative_query_uses_both_agents(self, test_user_id):
         """Collaborative query should use both support and knowledge agents."""
@@ -37,7 +37,8 @@ class TestCollaborativeCrew:
         )
         
         # Should indicate both agents were used
-        assert "support" in result["agent_used"].lower() or "knowledge" in result["agent_used"].lower()
+        # agent_used is now a list of strings
+        assert "support" in result["agent_used"] and "knowledge" in result["agent_used"]
     
     def test_router_routes_both_to_collaborative_crew(self, test_user_id):
         """Router should send BOTH queries to collaborative crew."""
@@ -93,7 +94,7 @@ class TestRouterHybridApproach:
         from src.agents.router_agent import RouterAgent
         
         router = RouterAgent()
-        query_type = router.classify_query("What are InfinitePay's fees?")
+        query_type, language = router.classify_query("What are InfinitePay's fees?")
         
         assert query_type == "KNOWLEDGE"
     
@@ -102,7 +103,7 @@ class TestRouterHybridApproach:
         from src.agents.router_agent import RouterAgent
         
         router = RouterAgent()
-        query_type = router.classify_query("What is my balance?")
+        query_type, language = router.classify_query("What is my balance?")
         
         assert query_type == "SUPPORT"
     
@@ -111,7 +112,7 @@ class TestRouterHybridApproach:
         from src.agents.router_agent import RouterAgent
         
         router = RouterAgent()
-        query_type = router.classify_query(
+        query_type, language = router.classify_query(
             "What are the fees and why is my account blocked?"
         )
         

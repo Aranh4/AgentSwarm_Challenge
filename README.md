@@ -19,6 +19,7 @@
 - [Quick Start](#-quick-start)
 - [API Reference](#-api-reference)
 - [Testing](#-testing)
+- [Development with AI-Assisted Tools](#-development-with-ai-assisted-tools)
 - [Design Decisions](#-design-decisions)
 - [Project Structure](#-project-structure)
 
@@ -158,6 +159,15 @@ routing, language = router.classify_query("What are the fees?")
 # → ("KNOWLEDGE", "English")
 ```
 
+**Workflow Orchestration:**  
+The Router manages the entire request lifecycle:
+1. **Analyzes** incoming messages (intent + language)
+2. **Routes** to appropriate agent(s) (KNOWLEDGE, SUPPORT, or BOTH via Collaborative Crew)
+3. **Coordinates** parallel execution when needed (ThreadPoolExecutor for BOTH queries)
+4. **Ensures** all responses pass through Output Processor for quality control
+
+This direct function call approach provides clean orchestration with excellent performance and debuggability.
+
 ---
 
 ### 🧠 Knowledge Agent
@@ -250,6 +260,39 @@ flowchart LR
     STORE -.-> SEARCH
 ```
 
+### Pipeline Details
+
+#### 1. Data Ingestion (`src/rag/ingest.py`)
+
+**Process:**
+1. **Web Scraping** - Fetches HTML from 18 InfinitePay URLs using Playwright
+2. **HTML → Markdown** - Converts to clean text format
+3. **Semantic Chunking** - Splits text based on HTML structure (preserves topic boundaries)
+4. **Embedding Generation** - OpenAI `text-embedding-3-small` (1536 dimensions)
+5. **ChromaDB Storage** - Persistent vector database (`data/chromadb/`)
+
+**Semantic Chunking Strategy:**
+- **HTML Tag-Based Splitting** - Respects `<h2>`, `<h3>`, `<p>`, `<li>` boundaries
+- **Context Preservation** - Keeps related content together (e.g., product features under same heading)
+- **Optimal Size** - ~500 characters per chunk (balances context vs. retrieval precision)
+- **Metadata** - Stores source URL, chunk index, heading hierarchy
+
+**Why HTML-based chunking?**  
+Fixed-size chunking (e.g., every 500 chars) can split mid-sentence or separate related content. HTML structure naturally segments by topic, resulting in more semantically coherent chunks for retrieval.
+
+#### 2. Query-Time Retrieval (`src/rag/search.py`)
+
+**Process:**
+1. User query → Embed using same model (`text-embedding-3-small`)
+2. Similarity search in ChromaDB (cosine distance, top_k=5)
+3. Retrieve chunks with metadata (source URLs, headings)
+4. Assemble context for LLM generation
+
+**Retrieval Optimizations:**
+- **Increased Top-K** - Boosted from 3 to 5 chunks for better coverage
+- **Query Refinement** - Knowledge Agent strips personal context ("my balance" → "product price")
+- **Intent-Based Search** - Identifies core information need (e.g., "Can I afford X?" → searches for price)
+
 ### Indexed URLs (18 pages)
 
 | Category | URLs |
@@ -275,58 +318,38 @@ flowchart LR
 
 ### Prerequisites
 
-- Python 3.11+
-- OpenAI API Key (required)
-- Tavily API Key (optional, for web search)
+- **Docker** & Docker Compose
+- **OpenAI API Key** (required) - Get from [platform.openai.com](https://platform.openai.com/api-keys)
+- **Tavily API Key** (optional, for web search) - Get from [tavily.com](https://tavily.com)
 
-### Option 1: Docker (Recommended)
+### Environment Configuration
+
+**Critical First Step:** Configure your API keys before starting.
+
+```bash
+# 1. Create environment file
+cp .env.example .env
+
+# 2. Edit .env and add your keys
+OPENAI_API_KEY=sk-...           # Required
+TAVILY_API_KEY=tvly-...         # Optional (enables web search)
+ENVIRONMENT=development
+LOG_LEVEL=INFO
+```
+
+### Running with Docker
 
 ```bash
 # 1. Clone and enter directory
 git clone <repo-url>
 cd cloudwalk-agent-swarm
 
-# 2. Configure environment
-cp .env.example .env
-# Edit .env → Add OPENAI_API_KEY
-
-# 3. Start (builds + runs)
+# 2. Start (builds + runs)
 docker-compose up --build
 
-# 4. Access
+# 3. Access
 # 🖥️  Frontend: http://localhost:8080
 # 📖  API Docs: http://localhost:8080/docs
-```
-
-### Option 2: Local Development
-
-```bash
-# 1. Virtual environment
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# venv\Scripts\activate   # Windows
-
-# 2. Dependencies
-pip install -r requirements.txt
-
-# 3. Environment
-cp .env.example .env
-# Add OPENAI_API_KEY
-
-# 4. Ingest RAG data (first time)
-python scripts/ingest_rag.py
-
-# 5. Run server
-python -m uvicorn src.main:app --host 0.0.0.0 --port 8080 --reload
-```
-
-### Environment Variables
-
-```env
-OPENAI_API_KEY=sk-...           # Required
-TAVILY_API_KEY=tvly-...         # Optional (enables web search)
-ENVIRONMENT=development
-LOG_LEVEL=INFO
 ```
 
 ---
@@ -394,39 +417,40 @@ Interactive API documentation: `http://localhost:8080/docs`
 
 ## 🧪 Testing
 
-### Quick Test
+The project employs a dual-validation strategy to ensure both code integrity and AI quality.
+
+### 1. Code Integrity (System Tests)
+Validates the internal logic of database connections, router classification, and API endpoints.
 
 ```bash
-# Comprehensive test suite (41 scenarios)
+# Run the pytest suite (covers DB, Utils, Router functionality)
+docker-compose exec agent-swarm pytest
+```
+
+**Test Suite Coverage (30 Tests):**
+
+- **API Tests** (`test_api.py` - 4 tests): Health endpoint, chat endpoint validation
+- **Collaboration Tests** (`test_collaboration.py` - 8 tests): Multi-agent orchestration, context sharing, router hybrid approach
+- **Database Tests** (`test_database.py` - 7 tests): SQLite operations, user data retrieval, support tools
+- **RAG Tests** (`test_rag.py` - 5 tests): ChromaDB integration, embedding search, document retrieval
+- **Router Tests** (`test_router.py` - 6 tests): Query classification (KNOWLEDGE/SUPPORT/BOTH), routing logic
+
+All tests validate core system functionality without requiring expensive LLM calls for most unit tests.
+
+### 2. AI Quality & Scenarios (Deep Evaluation)
+A comprehensive script that runs **40+ real-world scenarios** against the running API to validate RAG accuracy, multi-agent collaboration, and security guardrails.
+
+```bash
+# Run the comprehensive evaluation
 python scripts/comprehensive_test.py
 ```
 
-### Test Categories
-
-| Category | Tests | Description |
-|----------|-------|-------------|
-| **RAG - Products** | 5 | InfinitePay descriptions, bilingual |
-| **RAG - Fees** | 5 | Transaction fees, pricing |
-| **RAG - Features** | 5 | Pix, cards, CDB, billing |
-| **Web Search** | 7 | News, current events, trivia |
-| **Support** | 16 | Account status, transactions, cards |
-| **Collaborative** | 3 | Multi-agent workflows |
-
-### Run Tests
-
-```bash
-# All pytest tests
-pytest tests/ -v
-
-# With coverage
-pytest tests/ --cov=src --cov-report=html
-
-# Security tests
-python scripts/test_security.py
-
-# Smoke test
-python scripts/smoke_test.py
-```
+This script generates a detailed Markdown report (e.g., `comprehensive_test_report_20260118.md`) covering:
+- ✅ **RAG Accuracy** (Fees, Products)
+- 🌍 **Web Search** (News, General Info)
+- 👤 **Support Actions** (Transactions, Blocking)
+- 🤝 **Collaboration** (Mixed Intent Queries)
+- 🛡️ **Security Guardrails** (Prompt Injection Attacks)
 
 ### Performance Benchmarks
 
@@ -435,6 +459,58 @@ python scripts/smoke_test.py
 | Knowledge (RAG) | ~13s |
 | Support (DB) | ~8s |
 | Collaborative | ~18s |
+
+### 3. Comprehensive Testing Strategy
+
+**Current Approach:**
+The dual-layer validation (unit tests + integration scenarios) provides immediate quality feedback during development.
+
+**Future Enhancements:**
+
+#### LLM-as-Judge Evaluation
+Implement automated quality assessment:
+- **Accuracy Agent** - Validates factual correctness against ground truth
+- **Relevance Scoring** - Measures answer pertinence to query
+- **Completeness Check** - Ensures all query aspects addressed
+- **Metrics Tracking** - Records quality trends over time
+
+#### Continuous Evaluation Pipeline
+```
+Git Commit → Unit Tests → Integration Tests → LLM Judge → Deploy
+                ↓ Fail at any stage = Block merge
+```
+
+#### Scenario Expansion
+- **Golden Dataset** - Curated set of expected responses
+- **Regression Detection** - Alert on quality degradation
+- **A/B Prompt Testing** - Compare agent instruction variants
+
+This approach would enable data-driven prompt optimization and ensure consistent AI quality in production.
+
+
+
+---
+
+## 🛠️ Development with AI-Assisted Tools
+
+This project leverages cutting-edge LLM tools for rapid, high-quality development:
+
+### **Antigravity** (Google)
+Primary development environment used for:
+- **Architecture Design** — Multi-agent system planning and workflow orchestration
+- **Prompt Engineering** — Iterative refinement of agent instructions (hardening Support Agent to prevent hallucination, adding logical comparison rules to Output Processor)
+- **Debugging** — Analyzing CrewAI behavior, fixing context propagation issues (`contextvars` in parallel execution)
+- **Test Creation** — Writing comprehensive pytest suites and scenario validation
+
+### **GPT Agent** (OpenAI)
+Used for research and analysis:
+- **Scenario Generation** — Creating realistic test cases (40+ scenarios in `comprehensive_test.py`)
+- **Edge Case Identification** — Security testing (prompt injection patterns, privacy violations)
+
+**Critical Quality Control:**
+- ✅ AI-generated code manually reviewed
+- ✅ Comprehensive testing (30 unit tests + 40+ integration scenarios)
+- ✅ Real-world validation with actual InfinitePay data
 
 ---
 

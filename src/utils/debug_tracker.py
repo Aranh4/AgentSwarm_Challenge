@@ -76,3 +76,11 @@ def get_current_debug_info() -> Dict[str, Any]:
     """Get the final debug object"""
     tracker = _debug_context.get()
     return tracker.get_info() if tracker else {}
+
+def get_tracker_instance():
+    """Get the raw tracker instance for manual propagation (threading)"""
+    return _debug_context.get()
+
+def set_tracker_instance(tracker):
+    """Set the raw tracker instance manually (used in threads)"""
+    _debug_context.set(tracker)
