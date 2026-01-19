@@ -595,20 +595,6 @@ cloudwalk-agent-swarm/
 
 ---
 
-## 🤖 Initial Brainstorming & LLM Usage
-
-This project was developed with AI assistance for:
-
-- **Initial Brainstorming** — Project scoping and tool selection
-- **Implementation** — Debugging and Prompt Engineering
-- **Testing** — Web Scraping Agent for Scenario Generation and Identification
-- **Documentation** — Diagrams and README outline
-- **Development Tooling** — Leveraged **Antigravity** (Google tool idea) for rapid prototyping and code orchestration
-
-> All code was manually reviewed, tested, and validated.
-
----
-
 ## 📄 License
 
 Developed for the **CloudWalk AI Challenge**.
